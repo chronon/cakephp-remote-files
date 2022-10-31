@@ -21,9 +21,15 @@ class UploadBehavior extends Behavior
     /**
      * _defaultConfig
      *
-     * @var mixed
+     * @var array
      */
-    protected $_defaultConfig = [];
+    protected $_defaultConfig = [
+        'defaults' => [
+            'remoteField' => 'remote',
+            'extField' => 'extension',
+            'cloudflareImage' => false,
+        ],
+    ];
 
     /**
      * A Remote File manager instance
@@ -66,7 +72,9 @@ class UploadBehavior extends Behavior
      */
     public function beforeMarshal(EventInterface $event, ArrayObject $data, ArrayObject $options): void
     {
-        foreach ($this->getConfig() as $field => $settings) {
+        $config = $this->getConfig();
+        unset($config['defaults']);
+        foreach ($config as $field => $settings) {
             if (!isset($data[$field])) {
                 continue;
             }
@@ -93,7 +101,11 @@ class UploadBehavior extends Behavior
      */
     public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
-        foreach ($this->getConfig() as $field => $settings) {
+        $config = $this->getConfig();
+        $defaults = $config['defaults'];
+        unset($config['defaults']);
+        foreach ($config as $field => $settings) {
+            $settings = array_merge($defaults, $settings);
             if ($entity->get($field) instanceof UploadedFileInterface) {
                 if ($entity->get($field)->getError() === UPLOAD_ERR_OK) {
                     $this->upload($field, $settings, $entity);
@@ -114,9 +126,10 @@ class UploadBehavior extends Behavior
      */
     protected function upload($field, array $settings, EntityInterface $entity): void
     {
+        $prefix = !empty($settings['prefix']) ? $settings['prefix'] : $this->_table->getTable();
         $file = $entity->get($field);
         $fileInfo = new \SplFileInfo($file->getClientFilename());
-        $fileNameBase = $this->_table->getTable() . '-' . Text::uuid();
+        $fileNameBase = $prefix . '-' . Text::uuid();
         $fileName = $fileNameBase . '.' . $fileInfo->getExtension();
         if (!$this->Manager->remoteWrite($fileName, $file->getStream()->getContents())) {
             throw new \Exception("There was an error remote writing `{$fileName}`");
@@ -142,7 +155,11 @@ class UploadBehavior extends Behavior
      */
     public function afterDelete(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
-        foreach ($this->getConfig() as $field => $settings) {
+        $config = $this->getConfig();
+        $defaults = $config['defaults'];
+        unset($config['defaults']);
+        foreach ($config as $field => $settings) {
+            $settings = array_merge($defaults, $settings);
             $remote = $entity->get($settings['remoteField']);
             if (!empty($entity) && !empty($remote)) {
                 $this->Manager->remoteDelete($remote . '.' . $entity->get($settings['extField']));
