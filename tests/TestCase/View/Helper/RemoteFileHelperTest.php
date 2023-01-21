@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace RemoteFiles\Test\TestCase\View\Helper;
 
+use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
 use RemoteFiles\View\Helper\RemoteFileHelper;
@@ -20,6 +21,45 @@ class RemoteFileHelperTest extends TestCase
     public $RemoteFileHelper;
 
     /**
+     * Test configuration
+     *
+     * @var array
+     */
+    public $testConfig = [
+        'RemoteFiles' => [
+            'RemoteStorage' => 'S3',
+            'S3' => [
+                'managerClass' => 'S3Manager',
+                'deliveryBase' => 's3.amazonaws.com',
+                'prefix' => 'files/test',
+                'clientConfig' => [
+                    'version' => 'latest',
+                    'region' => 'us-east-2',
+                    'bucket' => 'test-bucket',
+                    'credentials' => [
+                        'key'    => 's3key123',
+                        'secret' => 's3secret123',
+                    ],
+                ],
+
+            ],
+            'Cloudflare' => [
+                'Images' => [
+                    'apiUrl' => 'https://api.cloudflare.com/client/v4/accounts/%s/images/v1',
+                    'delivery' => [
+                        'url' => 'https://imagedelivery.net',
+                        'hash' => 'hash123',
+                    ],
+                    'Auth' => [
+                        'account' => 'cfaccount123',
+                        'token' => 'cftoken123',
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    /**
      * setUp method
      *
      * @return void
@@ -29,6 +69,7 @@ class RemoteFileHelperTest extends TestCase
         parent::setUp();
         $view = new View();
         $this->RemoteFileHelper = new RemoteFileHelper($view);
+        Configure::write($this->testConfig);
     }
 
     /**
@@ -39,6 +80,7 @@ class RemoteFileHelperTest extends TestCase
     public function tearDown(): void
     {
         unset($this->RemoteFileHelper);
+        Configure::write('RemoteFiles', []);
 
         parent::tearDown();
     }

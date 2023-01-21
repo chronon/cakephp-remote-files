@@ -13,6 +13,67 @@ use RemoteFiles\Lib\CloudflareImage;
 class CloudflareImageTest extends TestCase
 {
     /**
+     * Test configuration
+     *
+     * @var array
+     */
+    public $testConfig = [
+        'RemoteFiles' => [
+            'RemoteStorage' => 'S3',
+            'S3' => [
+                'managerClass' => 'S3Manager',
+                'deliveryBase' => 's3.amazonaws.com',
+                'prefix' => 'files/test',
+                'clientConfig' => [
+                    'version' => 'latest',
+                    'region' => 'us-east-2',
+                    'bucket' => 'test-bucket',
+                    'credentials' => [
+                        'key'    => 's3key123',
+                        'secret' => 's3secret123',
+                    ],
+                ],
+
+            ],
+            'Cloudflare' => [
+                'Images' => [
+                    'apiUrl' => 'https://api.cloudflare.com/client/v4/accounts/%s/images/v1',
+                    'delivery' => [
+                        'url' => 'https://imagedelivery.net',
+                        'hash' => 'hash123',
+                    ],
+                    'Auth' => [
+                        'account' => 'cfaccount123',
+                        'token' => 'cftoken123',
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    /**
+     * setUp method
+     *
+     * @return void
+     */
+    public function setUp(): void
+    {
+        parent::setUp();
+        Configure::write($this->testConfig);
+    }
+
+    /**
+     * tearDown method
+     *
+     * @return void
+     */
+    public function tearDown(): void
+    {
+        Configure::write('RemoteFiles', []);
+        parent::tearDown();
+    }
+
+    /**
      * testConstructorSet
      *
      * @return void
