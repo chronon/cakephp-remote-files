@@ -52,9 +52,10 @@ trait RemotePathTrait
      * Gets the URL from a remote file on Cloudflare Images
      *
      * @param string $imageId The image name/id
+     * @param array $options Optional options (used for variants)
      * @return string The remote image URL or empty string
      */
-    public function getRemoteImageUrl(string $imageId): string
+    public function getRemoteImageUrl(string $imageId, $options = []): string
     {
         $url = '';
 
@@ -64,7 +65,7 @@ trait RemotePathTrait
                 $url = $RemoteConfig['delivery']['url'] . '/';
                 $url .= $RemoteConfig['delivery']['hash'] . '/';
                 $url .= $imageId . '/';
-                $url .= $RemoteConfig['delivery']['variant'] ?? 'default';
+                $url .= $options['variant'] ?? 'default';
             }
         }
 
