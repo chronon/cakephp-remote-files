@@ -1,0 +1,19 @@
+parameters:
+    level: 8
+    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false
+    checkGenericClassInNonGenericObjectType: false
+    excludePaths:
+        - src/Model/Behavior/UploadBehavior.php
+    paths:
+        - src/
+    ignoreErrors:
+        -
+            message: "#^Method RemoteFiles\\\\View\\\\Helper\\\\RemoteFileHelper\\:\\:getManager\\(\\) should return RemoteFiles\\\\Lib\\\\RemoteManagerInterface but returns object.$#"
+            count: 1
+            path: src/Lib/RemotePathTrait.php
+
+        -
+            message: "#^Access to an undefined property RemoteFiles\\\\View\\\\Helper\\\\RemoteFileHelper\\:\\:\\$Html.$#"
+            count: 1
+            path: src/View/Helper/RemoteFileHelper.php

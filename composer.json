@@ -12,7 +12,9 @@
     "league/flysystem-aws-s3-v3": "^3.0"
   },
   "require-dev": {
-    "phpunit/phpunit": "^9.3"
+    "phpunit/phpunit": "^9.3",
+    "phpstan/phpstan": "^1.9",
+    "cakephp/cakephp-codesniffer": "^4.5"
   },
   "autoload": {
     "psr-4": {
@@ -23,6 +25,11 @@
     "psr-4": {
       "RemoteFiles\\Test\\": "tests/",
       "Cake\\Test\\": "vendor/cakephp/cakephp/tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
     }
   }
 }

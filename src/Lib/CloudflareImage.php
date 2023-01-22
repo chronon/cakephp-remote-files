@@ -7,6 +7,7 @@ use Cake\Core\Configure;
 use Cake\Log\Log;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Class: CloudflareImage
@@ -120,7 +121,7 @@ class CloudflareImage
     /**
      * Parse and process the response
      *
-     * @param mixed $response \Psr\Http\Message\ResponseInterface or null
+     * @param mixed $response \Psr\Http\Message\ResponseInterface|string|null
      * @param string $id The ID to use for the image
      * @param string $method The method that was performed
      * @return bool True on success, false on failure
@@ -128,7 +129,7 @@ class CloudflareImage
     public function parseResponse($response, string $id, string $method): bool
     {
         $result = false;
-        if ($response && is_object($response) && $response->getStatusCode() === 200) {
+        if ($response instanceof ResponseInterface && $response->getStatusCode() === 200) {
             $body = json_decode($response->getBody()->getContents(), true);
             if ($body && $body['success']) {
                 $result = true;
@@ -181,7 +182,7 @@ class CloudflareImage
                 ],
             ]);
 
-            if ($response && is_object($response) && $response->getStatusCode() === 200) {
+            if ($response instanceof ResponseInterface && $response->getStatusCode() === 200) {
                 $result = $response->getBody()->getContents();
             }
         } catch (RequestException $e) {

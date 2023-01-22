@@ -21,7 +21,7 @@ class UploadBehavior extends Behavior
     /**
      * _defaultConfig
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $_defaultConfig = [
         'defaults' => [
@@ -94,10 +94,9 @@ class UploadBehavior extends Behavior
      * beforeSave event
      *
      * @param \Cake\Event\EventInterface $event The event
-     * @param \Cake\DataSource\EntityInterface $entity The entity
-     * @param \ArrayObject $options options
+     * @param \Cake\Datasource\EntityInterface $entity The request entity
+     * @param \ArrayObject $options The request options
      * @return void
-     * @throws \Exception
      */
     public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
@@ -126,10 +125,11 @@ class UploadBehavior extends Behavior
      */
     protected function upload($field, array $settings, EntityInterface $entity): void
     {
+        $globalPrefix = Configure::check('RemoteFiles.globalPrefix') ? Configure::read('RemoteFiles.globalPrefix') : '';
         $prefix = !empty($settings['prefix']) ? $settings['prefix'] : $this->_table->getTable();
         $file = $entity->get($field);
         $fileInfo = new \SplFileInfo($file->getClientFilename());
-        $fileNameBase = $prefix . '-' . Text::uuid();
+        $fileNameBase = $globalPrefix . $prefix . '-' . Text::uuid();
         $fileName = $fileNameBase . '.' . $fileInfo->getExtension();
         if (!$this->Manager->remoteWrite($fileName, $file->getStream()->getContents())) {
             throw new \Exception("There was an error remote writing `{$fileName}`");
