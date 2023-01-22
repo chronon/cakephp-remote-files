@@ -1,0 +1,71 @@
+name: CI
+
+on: push
+
+permissions:
+  contents: read
+
+jobs:
+  testsuite:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.2']
+    name: PHP ${{ matrix.php-version }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mbstring, intl, pdo_sqlite
+        coverage: none
+
+    - name: Composer install
+      run: composer install --no-interaction
+
+    - name: Run PHPUnit
+      run: vendor/bin/phpunit tests/
+
+  coding-standard:
+    name: Coding Standard
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, intl
+        coverage: none
+
+    - name: Composer install
+      run: composer install --no-interaction
+
+    - name: Run PHP CodeSniffer
+      run: vendor/bin/phpcs --standard=vendor/cakephp/cakephp-codesniffer/CakePHP src/ tests/
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, intl
+        coverage: none
+
+    - name: Composer install
+      run: composer install --no-interaction
+
+    - name: Run phpstan
+      run: vendor/bin/phpstan analyse src/ tests/
