@@ -23,6 +23,7 @@ trait RemotePathTrait
         $managerClass = Configure::read("RemoteFiles.{$remoteStorage}.managerClass");
         $Manager = "RemoteFiles\\Lib\\{$managerClass}";
 
+        /** @phpstan-ignore-next-line */
         return new $Manager();
     }
 
@@ -64,7 +65,7 @@ trait RemotePathTrait
                 $url = $RemoteConfig['delivery']['url'] . '/';
                 $url .= $RemoteConfig['delivery']['hash'] . '/';
                 $url .= $imageId . '/';
-                $url .= $options['variant'] ?? 'default';
+                $url .= $RemoteConfig['delivery']['variant'] ?? 'default';
             }
         }
 

@@ -29,7 +29,7 @@ class CloudflareImageTest extends TestCase
                     'region' => 'us-east-2',
                     'bucket' => 'test-bucket',
                     'credentials' => [
-                        'key'    => 's3key123',
+                        'key' => 's3key123',
                         'secret' => 's3secret123',
                     ],
                 ],
@@ -102,8 +102,7 @@ class CloudflareImageTest extends TestCase
     {
         Configure::write('RemoteFiles.Cloudflare.Images.Auth.token', null);
         $this->expectException(
-            'InvalidArgumentException',
-            'Cloudflare Images token, account and apiUrl are required'
+            'InvalidArgumentException'
         );
         new CloudflareImage();
     }

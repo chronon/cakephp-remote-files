@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false
+    checkGenericClassInNonGenericObjectType: false
+    excludePaths:
+        - src/Model/Behavior/UploadBehavior.php
+    paths:
+        - src/

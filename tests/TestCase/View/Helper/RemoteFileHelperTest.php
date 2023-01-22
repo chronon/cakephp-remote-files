@@ -37,7 +37,7 @@ class RemoteFileHelperTest extends TestCase
                     'region' => 'us-east-2',
                     'bucket' => 'test-bucket',
                     'credentials' => [
-                        'key'    => 's3key123',
+                        'key' => 's3key123',
                         'secret' => 's3secret123',
                     ],
                 ],

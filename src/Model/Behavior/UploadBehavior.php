@@ -21,7 +21,7 @@ class UploadBehavior extends Behavior
     /**
      * _defaultConfig
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $_defaultConfig = [
         'defaults' => [
@@ -94,10 +94,9 @@ class UploadBehavior extends Behavior
      * beforeSave event
      *
      * @param \Cake\Event\EventInterface $event The event
-     * @param \Cake\DataSource\EntityInterface $entity The entity
-     * @param \ArrayObject $options options
+     * @param \Cake\Datasource\EntityInterface $entity The request entity
+     * @param \ArrayObject $options The request options
      * @return void
-     * @throws \Exception
      */
     public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
