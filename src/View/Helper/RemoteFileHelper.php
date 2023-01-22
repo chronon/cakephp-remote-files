@@ -36,7 +36,8 @@ class RemoteFileHelper extends Helper
 
         if ($imageId) {
             $options['class'] = empty($options['class']) ? $defaultClass : $options['class'];
-            $path = $this->getRemoteImageUrl($imageId);
+            $path = $this->getRemoteImageUrl($imageId, $options);
+            unset($options['variant']);
             $image = $this->Html->image($path, $options);
         }
 
