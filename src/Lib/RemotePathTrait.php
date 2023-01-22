@@ -23,7 +23,6 @@ trait RemotePathTrait
         $managerClass = Configure::read("RemoteFiles.{$remoteStorage}.managerClass");
         $Manager = "RemoteFiles\\Lib\\{$managerClass}";
 
-        /** @phpstan-ignore-next-line */
         return new $Manager();
     }
 
