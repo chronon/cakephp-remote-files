@@ -28,6 +28,7 @@ class UploadBehavior extends Behavior
             'remoteField' => 'remote',
             'extField' => 'extension',
             'cloudflareImage' => false,
+            'deleteEnabled' => true,
         ],
     ];
 
@@ -158,14 +159,16 @@ class UploadBehavior extends Behavior
         $config = $this->getConfig();
         $defaults = $config['defaults'];
         unset($config['defaults']);
-        foreach ($config as $field => $settings) {
+        foreach ($config as $settings) {
             $settings = array_merge($defaults, $settings);
-            $remote = $entity->get($settings['remoteField']);
-            if (!empty($entity) && !empty($remote)) {
-                $this->Manager->remoteDelete($remote . '.' . $entity->get($settings['extField']));
-            }
-            if (!empty($settings['cloudflareImage'])) {
-                (new CloudflareImage())->delete($remote);
+            if ($settings['deleteEnabled'] === true) {
+                $remote = $entity->get($settings['remoteField']);
+                if (!empty($entity) && !empty($remote)) {
+                    $this->Manager->remoteDelete($remote . '.' . $entity->get($settings['extField']));
+                }
+                if (!empty($settings['cloudflareImage'])) {
+                    (new CloudflareImage())->delete($remote);
+                }
             }
         }
     }
