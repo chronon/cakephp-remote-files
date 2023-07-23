@@ -12,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         php-version: ['8.2']
-    name: PHP ${{ matrix.php-version }}
 
     steps:
     - uses: actions/checkout@v3
@@ -30,9 +29,11 @@ jobs:
     - name: Run PHPUnit
       run: vendor/bin/phpunit tests/
 
-  coding-standard:
-    name: Coding Standard
+  cs-stan:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: ['8.2']
 
     steps:
     - uses: actions/checkout@v3
@@ -40,7 +41,7 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2'
+        php-version: ${{ matrix.php-version }}
         extensions: mbstring, intl
         coverage: none
 
@@ -50,22 +51,6 @@ jobs:
     - name: Run PHP CodeSniffer
       run: vendor/bin/phpcs --standard=vendor/cakephp/cakephp-codesniffer/CakePHP src/ tests/
 
-  static-analysis:
-    name: Static Analysis
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, intl
-        coverage: none
-
-    - name: Composer install
-      run: composer install --no-interaction
-
     - name: Run phpstan
+      if: success() || failure()
       run: vendor/bin/phpstan analyse src/ tests/
