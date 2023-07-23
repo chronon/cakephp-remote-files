@@ -134,7 +134,7 @@ class CloudflareImage
             if ($body && $body['success']) {
                 $result = true;
             }
-            if (!$body || ($body && !$body['success'])) {
+            if (!$body || (isset($body['success']) && !$body['success'])) {
                 Log::error(__METHOD__ . ": Error Id: {$id} Method: {$method}");
             }
         } elseif ($response === 'exists') {
