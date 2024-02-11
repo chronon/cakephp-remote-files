@@ -20,7 +20,7 @@ class RemoteFileHelper extends Helper
      *
      * @var array
      */
-    public $helpers = ['Html'];
+    public array $helpers = ['Html'];
 
     /**
      * Creates an HTML image sourced from a remote file on Cloudflare Images

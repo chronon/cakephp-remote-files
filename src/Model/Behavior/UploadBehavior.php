@@ -23,7 +23,7 @@ class UploadBehavior extends Behavior
      *
      * @var array<string, mixed>
      */
-    protected $_defaultConfig = [
+    protected array $_defaultConfig = [
         'defaults' => [
             'remoteField' => 'remote',
             'extField' => 'extension',
