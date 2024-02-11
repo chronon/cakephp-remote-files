@@ -11,10 +11,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.2']
+        php-version: ['8.2', '8.3']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php-version: ['8.2']
+        php-version: ['8.2', '8.3']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -53,4 +53,4 @@ jobs:
 
     - name: Run phpstan
       if: success() || failure()
-      run: vendor/bin/phpstan analyse src/ tests/
+      run: vendor/bin/phpstan analyse

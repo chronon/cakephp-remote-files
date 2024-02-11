@@ -40,12 +40,12 @@ interface RemoteManagerInterface
      *
      * @return mixed
      */
-    public function clientFactory();
+    public function clientFactory(): mixed;
 
     /**
      * Adapter Factory
      *
      * @return mixed
      */
-    public function adapterFactory();
+    public function adapterFactory(): mixed;
 }
