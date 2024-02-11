@@ -10,8 +10,10 @@ use Cake\DataSource\EntityInterface;
 use Cake\Event\EventInterface;
 use Cake\ORM\Behavior;
 use Cake\Utility\Text;
+use Exception;
 use Psr\Http\Message\UploadedFileInterface;
 use RemoteFiles\Lib\CloudflareImage;
+use SplFileInfo;
 
 /**
  * Upload behavior
@@ -37,7 +39,7 @@ class UploadBehavior extends Behavior
      *
      * @var mixed
      */
-    protected $Manager;
+    protected mixed $Manager;
 
     /**
      * Build the behaviour
@@ -110,7 +112,7 @@ class UploadBehavior extends Behavior
                 if ($entity->get($field)->getError() === UPLOAD_ERR_OK) {
                     $this->upload($field, $settings, $entity);
                 } else {
-                    throw new \Exception("There was an error uploading `{$field}`");
+                    throw new Exception("There was an error uploading `{$field}`");
                 }
             }
         }
@@ -124,16 +126,16 @@ class UploadBehavior extends Behavior
      * @param \Cake\Datasource\EntityInterface $entity The current entity to process
      * @return void
      */
-    protected function upload($field, array $settings, EntityInterface $entity): void
+    protected function upload(string $field, array $settings, EntityInterface $entity): void
     {
         $globalPrefix = Configure::check('RemoteFiles.globalPrefix') ? Configure::read('RemoteFiles.globalPrefix') : '';
         $prefix = !empty($settings['prefix']) ? $settings['prefix'] : $this->_table->getTable();
         $file = $entity->get($field);
-        $fileInfo = new \SplFileInfo($file->getClientFilename());
+        $fileInfo = new SplFileInfo($file->getClientFilename());
         $fileNameBase = $globalPrefix . $prefix . '-' . Text::uuid();
         $fileName = $fileNameBase . '.' . $fileInfo->getExtension();
         if (!$this->Manager->remoteWrite($fileName, $file->getStream()->getContents())) {
-            throw new \Exception("There was an error remote writing `{$fileName}`");
+            throw new Exception("There was an error remote writing `{$fileName}`");
         }
         $entity->set($field, $file->getClientFilename());
         $entity->set($settings['remoteField'], $fileNameBase);

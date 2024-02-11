@@ -55,7 +55,7 @@ trait RemotePathTrait
      * @param array $options Optional options (used for variants)
      * @return string The remote image URL or empty string
      */
-    public function getRemoteImageUrl(string $imageId, $options = []): string
+    public function getRemoteImageUrl(string $imageId, array $options = []): string
     {
         $url = '';
 

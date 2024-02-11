@@ -42,7 +42,7 @@ class RemoteFilesPlugin extends BasePlugin
         $routes->plugin(
             'RemoteFiles',
             ['path' => '/remote-files'],
-            function (RouteBuilder $builder) {
+            function (RouteBuilder $builder): void {
                 // Add custom routes here
 
                 $builder->fallbacks();

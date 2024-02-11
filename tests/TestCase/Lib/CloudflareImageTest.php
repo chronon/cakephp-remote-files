@@ -5,6 +5,10 @@ namespace RemoteFiles\Test\TestCase\Lib;
 
 use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
+use ReflectionProperty;
 use RemoteFiles\Lib\CloudflareImage;
 
 /**
@@ -85,8 +89,8 @@ class CloudflareImageTest extends TestCase
 
         $protectedProperties = ['token', 'account', 'apiUrl'];
         foreach ($protectedProperties as $property) {
-            $this->assertClassHasAttribute($property, CloudflareImage::class);
-            $Reflection = new \ReflectionProperty(CloudflareImage::class, $property);
+            $this->assertTrue(property_exists(CloudflareImage::class, $property));
+            $Reflection = new ReflectionProperty(CloudflareImage::class, $property);
             $Reflection->setAccessible(true);
             $propertyVal = $Reflection->getValue($CloudflareImage);
             $this->assertNotEmpty($propertyVal);
@@ -102,7 +106,7 @@ class CloudflareImageTest extends TestCase
     {
         Configure::write('RemoteFiles.Cloudflare.Images.Auth.token', null);
         $this->expectException(
-            'InvalidArgumentException'
+            'TypeError',
         );
         new CloudflareImage();
     }
@@ -137,7 +141,7 @@ class CloudflareImageTest extends TestCase
             ->getMock();
         $CloudflareImage->client->expects($this->once())
             ->method('request')
-            ->willThrowException(new \GuzzleHttp\Exception\RequestException($exceptionMsg, new \GuzzleHttp\Psr7\Request('POST', 'test')));
+            ->willThrowException(new RequestException($exceptionMsg, new Request('POST', 'test')));
 
         $result = $CloudflareImage->uploadUrl($url, $id);
         $this->assertFalse($result);
@@ -160,7 +164,7 @@ class CloudflareImageTest extends TestCase
             ->getMock();
         $CloudflareImage->client->expects($this->once())
             ->method('request')
-            ->willReturn(new \GuzzleHttp\Psr7\Response(200, [], '{"success":true,"result":{"id":"123","url":"' . $url . '"}}'));
+            ->willReturn(new Response(200, [], '{"success":true,"result":{"id":"123","url":"' . $url . '"}}'));
 
         $result = $CloudflareImage->uploadUrl($url, $id);
         $this->assertTrue($result);
@@ -183,7 +187,7 @@ class CloudflareImageTest extends TestCase
             ->getMock();
         $CloudflareImage->client->expects($this->once())
             ->method('request')
-            ->willReturn(new \GuzzleHttp\Psr7\Response(200, [], '{"success":false}'));
+            ->willReturn(new Response(200, [], '{"success":false}'));
 
         $result = $CloudflareImage->uploadUrl($url, $id);
         $this->assertFalse($result);

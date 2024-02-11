@@ -7,6 +7,7 @@ use Cake\Core\Configure;
 use Cake\Log\Log;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -21,28 +22,28 @@ class CloudflareImage
      *
      * @var string
      */
-    protected $token;
+    protected string $token;
 
     /**
      * account
      *
      * @var string
      */
-    protected $account;
+    protected string $account;
 
     /**
      * apiUrl
      *
      * @var string
      */
-    protected $apiUrl;
+    protected string $apiUrl;
 
     /**
      * client
      *
      * @var \GuzzleHttp\Client
      */
-    public $client;
+    public Client $client;
 
     /**
      * Constructor
@@ -62,7 +63,7 @@ class CloudflareImage
         );
 
         if (!$this->token || !$this->account || !$this->apiUrl) {
-            throw new \InvalidArgumentException('Cloudflare Images token, account and apiUrl are required');
+            throw new InvalidArgumentException('Cloudflare Images token, account and apiUrl are required');
         }
 
         $this->apiUrl = sprintf($this->apiUrl, $this->account);
@@ -126,7 +127,7 @@ class CloudflareImage
      * @param string $method The method that was performed
      * @return bool True on success, false on failure
      */
-    public function parseResponse($response, string $id, string $method): bool
+    public function parseResponse(mixed $response, string $id, string $method): bool
     {
         $result = false;
         if ($response instanceof ResponseInterface && $response->getStatusCode() === 200) {
@@ -172,7 +173,7 @@ class CloudflareImage
      * @param string $id The image ID to get
      * @return mixed The image data or null
      */
-    public function get(string $id)
+    public function get(string $id): mixed
     {
         $result = null;
         try {
