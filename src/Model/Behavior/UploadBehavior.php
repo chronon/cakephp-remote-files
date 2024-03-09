@@ -76,7 +76,7 @@ class UploadBehavior extends Behavior
     public function beforeMarshal(EventInterface $event, ArrayObject $data, ArrayObject $options): void
     {
         $config = $this->getConfig();
-        unset($config['defaults']);
+        unset($config['defaults'], $config['className']);
         foreach ($config as $field => $settings) {
             if (!isset($data[$field])) {
                 continue;
@@ -105,7 +105,7 @@ class UploadBehavior extends Behavior
     {
         $config = $this->getConfig();
         $defaults = $config['defaults'];
-        unset($config['defaults']);
+        unset($config['defaults'], $config['className']);
         foreach ($config as $field => $settings) {
             $settings = array_merge($defaults, $settings);
             if ($entity->get($field) instanceof UploadedFileInterface) {
@@ -160,7 +160,7 @@ class UploadBehavior extends Behavior
     {
         $config = $this->getConfig();
         $defaults = $config['defaults'];
-        unset($config['defaults']);
+        unset($config['defaults'], $config['className']);
         foreach ($config as $settings) {
             $settings = array_merge($defaults, $settings);
             if ($settings['deleteEnabled'] === true) {
