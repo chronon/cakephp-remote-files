@@ -52,7 +52,7 @@ class UploadBehavior extends Behavior
         TypeFactory::map('remote.file', '\RemoteFiles\Database\Type\FileType');
         $schema = $this->_table->getSchema();
         foreach (array_keys($this->getConfig()) as $field) {
-            if (is_string($field)) {
+            if (is_string($field) && $schema->hasColumn($field)) {
                 $schema->setColumnType($field, 'remote.file');
             }
         }
