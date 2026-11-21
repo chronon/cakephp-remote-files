@@ -5,24 +5,26 @@ namespace RemoteFiles\Model\Behavior;
 
 use ArrayObject;
 use Cake\Core\Configure;
+use Cake\Core\Exception\CakeException;
 use Cake\Database\TypeFactory;
-use Cake\DataSource\EntityInterface;
+use Cake\Datasource\EntityInterface;
 use Cake\Event\EventInterface;
 use Cake\ORM\Behavior;
 use Cake\Utility\Text;
-use Exception;
 use Psr\Http\Message\UploadedFileInterface;
+use RemoteFiles\Database\Type\FileType;
 use RemoteFiles\Lib\CloudflareImage;
-use SplFileInfo;
+use RemoteFiles\Lib\ManagerFactory;
+use RemoteFiles\Lib\RemoteManagerInterface;
 
 /**
- * Upload behavior
+ * Uploads files to remote storage on save and removes them on delete.
+ *
+ * Each config key other than `defaults` is an upload field, with settings merged over `defaults`.
  */
 class UploadBehavior extends Behavior
 {
     /**
-     * _defaultConfig
-     *
      * @var array<string, mixed>
      */
     protected array $_defaultConfig = [
@@ -34,59 +36,42 @@ class UploadBehavior extends Behavior
         ],
     ];
 
-    /**
-     * A Remote File manager instance
-     *
-     * @var mixed
-     */
-    protected mixed $Manager;
+    protected RemoteManagerInterface $manager;
 
     /**
-     * Build the behaviour
-     *
-     * @param array $config Passed configuration
+     * @param array<string, mixed> $config The behavior config
      * @return void
      */
     public function initialize(array $config): void
     {
-        TypeFactory::map('remote.file', '\RemoteFiles\Database\Type\FileType');
+        TypeFactory::map('remote.file', FileType::class);
         $schema = $this->_table->getSchema();
-        foreach (array_keys($this->getConfig()) as $field) {
-            if (is_string($field) && $schema->hasColumn($field)) {
+        foreach (array_keys($this->fieldSettings()) as $field) {
+            if ($schema->hasColumn($field)) {
                 $schema->setColumnType($field, 'remote.file');
             }
         }
         $this->_table->setSchema($schema);
 
-        $remoteStorage = Configure::read('RemoteFiles.RemoteStorage');
-        $managerClass = Configure::read("RemoteFiles.{$remoteStorage}.managerClass");
-        $Manager = "RemoteFiles\\Lib\\{$managerClass}";
-        $this->Manager = new $Manager();
+        $this->manager = ManagerFactory::create();
     }
 
     /**
-     * beforeMarshal event
+     * Drop empty uploads for fields that allow empty values, so the existing value is kept.
      *
-     * @param \Cake\Event\EventInterface $event The event
-     * @param \ArrayObject $data data
-     * @param \ArrayObject $options options
+     * @param \Cake\Event\EventInterface<\Cake\ORM\Table> $event The event
+     * @param \ArrayObject<string, mixed> $data The request data
+     * @param \ArrayObject<string, mixed> $options The marshal options
      * @return void
-     * @throws \Cake\Core\Exception\CakeException
      */
     public function beforeMarshal(EventInterface $event, ArrayObject $data, ArrayObject $options): void
     {
-        $config = $this->getConfig();
-        unset($config['defaults'], $config['className']);
-        foreach ($config as $field => $settings) {
-            if (!isset($data[$field])) {
-                continue;
-            }
-
-            $upload = $data[$field];
+        foreach (array_keys($this->fieldSettings()) as $field) {
+            $upload = $data[$field] ?? null;
             if (
-                $this->_table->getValidator()->isEmptyAllowed($field, false) &&
                 $upload instanceof UploadedFileInterface &&
-                $upload->getError() === UPLOAD_ERR_NO_FILE
+                $upload->getError() === UPLOAD_ERR_NO_FILE &&
+                $this->_table->getValidator()->isEmptyAllowed($field, false)
             ) {
                 unset($data[$field]);
             }
@@ -94,84 +79,103 @@ class UploadBehavior extends Behavior
     }
 
     /**
-     * beforeSave event
-     *
-     * @param \Cake\Event\EventInterface $event The event
-     * @param \Cake\Datasource\EntityInterface $entity The request entity
-     * @param \ArrayObject $options The request options
+     * @param \Cake\Event\EventInterface<\Cake\ORM\Table> $event The event
+     * @param \Cake\Datasource\EntityInterface $entity The entity being saved
+     * @param \ArrayObject<string, mixed> $options The save options
      * @return void
+     * @throws \Cake\Core\Exception\CakeException When an upload failed or could not be written
      */
     public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
-        $config = $this->getConfig();
-        $defaults = $config['defaults'];
-        unset($config['defaults'], $config['className']);
-        foreach ($config as $field => $settings) {
-            $settings = array_merge($defaults, $settings);
-            if ($entity->get($field) instanceof UploadedFileInterface) {
-                if ($entity->get($field)->getError() === UPLOAD_ERR_OK) {
-                    $this->upload($field, $settings, $entity);
-                } else {
-                    throw new Exception("There was an error uploading `{$field}`");
-                }
+        foreach ($this->fieldSettings() as $field => $settings) {
+            $file = $entity->get($field);
+            if (!$file instanceof UploadedFileInterface) {
+                continue;
             }
+            if ($file->getError() !== UPLOAD_ERR_OK) {
+                throw new CakeException("There was an error uploading `{$field}`");
+            }
+            $this->upload($field, $settings, $entity, $file);
         }
     }
 
     /**
-     * Upload a file to a remote location
+     * Remove the remote files of a deleted entity.
      *
-     * @param string $field The upload field name
-     * @param array $settings Array of upload settings for the field
-     * @param \Cake\Datasource\EntityInterface $entity The current entity to process
-     * @return void
-     */
-    protected function upload(string $field, array $settings, EntityInterface $entity): void
-    {
-        $globalPrefix = Configure::check('RemoteFiles.globalPrefix') ? Configure::read('RemoteFiles.globalPrefix') : '';
-        $prefix = !empty($settings['prefix']) ? $settings['prefix'] : $this->_table->getTable();
-        $file = $entity->get($field);
-        $fileInfo = new SplFileInfo($file->getClientFilename());
-        $fileNameBase = $globalPrefix . $prefix . '-' . Text::uuid();
-        $fileName = $fileNameBase . '.' . $fileInfo->getExtension();
-        if (!$this->Manager->remoteWrite($fileName, $file->getStream()->getContents())) {
-            throw new Exception("There was an error remote writing `{$fileName}`");
-        }
-        $entity->set($field, $file->getClientFilename());
-        $entity->set($settings['remoteField'], $fileNameBase);
-        $entity->set($settings['extField'], $fileInfo->getExtension());
-
-        if (!empty($settings['cloudflareImage'])) {
-            (new CloudflareImage())->uploadUrl($this->Manager->getRemoteUrl($fileName), $fileNameBase);
-        }
-    }
-
-    /**
-     * afterDelete method
-     *
-     * Remove images from records which have been deleted, if they exist
-     *
-     * @param \Cake\Event\Event $event The passed event
-     * @param \Cake\Datasource\EntityInterface $entity The entity
-     * @param \ArrayObject $options Array of options
+     * @param \Cake\Event\EventInterface<\Cake\ORM\Table> $event The event
+     * @param \Cake\Datasource\EntityInterface $entity The deleted entity
+     * @param \ArrayObject<string, mixed> $options The delete options
      * @return void
      */
     public function afterDelete(EventInterface $event, EntityInterface $entity, ArrayObject $options): void
     {
-        $config = $this->getConfig();
-        $defaults = $config['defaults'];
-        unset($config['defaults'], $config['className']);
-        foreach ($config as $settings) {
-            $settings = array_merge($defaults, $settings);
-            if ($settings['deleteEnabled'] === true) {
-                $remote = $entity->get($settings['remoteField']);
-                if (!empty($entity) && !empty($remote)) {
-                    $this->Manager->remoteDelete($remote . '.' . $entity->get($settings['extField']));
-                }
-                if (!empty($settings['cloudflareImage'])) {
-                    (new CloudflareImage())->delete($remote);
-                }
+        foreach ($this->fieldSettings() as $settings) {
+            $remote = $entity->get($settings['remoteField']);
+            if ($settings['deleteEnabled'] !== true || !is_string($remote) || $remote === '') {
+                continue;
+            }
+            $this->manager->remoteDelete($remote . '.' . $entity->get($settings['extField']));
+            if ($settings['cloudflareImage']) {
+                $this->cloudflare()->delete($remote);
             }
         }
+    }
+
+    /**
+     * @param string $field The upload field
+     * @param array<string, mixed> $settings The field settings
+     * @param \Cake\Datasource\EntityInterface $entity The entity being saved
+     * @param \Psr\Http\Message\UploadedFileInterface $file The uploaded file
+     * @return void
+     * @throws \Cake\Core\Exception\CakeException When the file could not be written
+     */
+    protected function upload(
+        string $field,
+        array $settings,
+        EntityInterface $entity,
+        UploadedFileInterface $file,
+    ): void {
+        $prefix = $settings['prefix'] ?? null ?: $this->_table->getTable();
+        $clientName = (string)$file->getClientFilename();
+        $extension = pathinfo($clientName, PATHINFO_EXTENSION);
+        $remote = Configure::read('RemoteFiles.globalPrefix', '') . $prefix . '-' . Text::uuid();
+        $fileName = "{$remote}.{$extension}";
+
+        $stream = $file->getStream();
+        if ($stream->isSeekable()) {
+            $stream->rewind();
+        }
+        if (!$this->manager->remoteWrite($fileName, $stream->getContents())) {
+            throw new CakeException("There was an error remote writing `{$fileName}`");
+        }
+        $entity->set($field, $clientName);
+        $entity->set($settings['remoteField'], $remote);
+        $entity->set($settings['extField'], $extension);
+
+        if ($settings['cloudflareImage']) {
+            $this->cloudflare()->uploadUrl($this->manager->getRemoteUrl($fileName), $remote);
+        }
+    }
+
+    /**
+     * @return \RemoteFiles\Lib\CloudflareImage
+     */
+    protected function cloudflare(): CloudflareImage
+    {
+        return new CloudflareImage();
+    }
+
+    /**
+     * Upload field settings merged over `defaults`. Non-array config values are behavior options, not fields.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function fieldSettings(): array
+    {
+        $config = $this->getConfig();
+        $defaults = $config['defaults'];
+        unset($config['defaults']);
+
+        return array_map(fn(array $settings): array => $settings + $defaults, array_filter($config, 'is_array'));
     }
 }

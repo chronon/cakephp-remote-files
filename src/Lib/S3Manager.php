@@ -9,81 +9,55 @@ use Cake\Log\Log;
 use League\Flysystem\AwsS3V3\AwsS3V3Adapter;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
-use League\Flysystem\UnableToWriteFile;
 
-/**
- * Class: S3Manager
- *
- * @package RemoteFiles\Lib
- */
 class S3Manager implements RemoteManagerInterface
 {
     /**
-     * Write a file to the remote filesystem.
-     *
-     * @param string $path The path to write to
-     * @param string $contents The contents to write
-     * @return bool True on successful write
-     * @throws \League\Flysystem\FilesystemException
-     * @throws \League\Flysystem\UnableToWriteFile
+     * @inheritDoc
      */
     public function remoteWrite(string $path, string $contents): bool
     {
-        $result = true;
-        $adapter = $this->adapterFactory();
-        $filesystem = new Filesystem($adapter);
         try {
-            $filesystem->write($path, $contents);
-        } catch (FilesystemException | UnableToWriteFile $exception) {
+            $this->filesystem()->write($path, $contents);
+        } catch (FilesystemException $exception) {
             Log::error($exception->getMessage());
-            $result = false;
-        } finally {
-            return $result;
+
+            return false;
         }
+
+        return true;
     }
 
     /**
-     * Delete a file from the remote filesystem.
-     *
-     * @param string $remote The path to write to
-     * @return bool True on successful delete
-     * @throws \League\Flysystem\FilesystemException
-     * @throws \League\Flysystem\UnableToWriteFile
+     * @inheritDoc
      */
     public function remoteDelete(string $remote): bool
     {
-        $result = true;
-        $adapter = $this->adapterFactory();
-        $filesystem = new Filesystem($adapter);
         try {
-            $filesystem->delete($remote);
-        } catch (FilesystemException | UnableToWriteFile $exception) {
+            $this->filesystem()->delete($remote);
+        } catch (FilesystemException $exception) {
             Log::error($exception->getMessage());
-            $result = false;
-        } finally {
-            return $result;
+
+            return false;
         }
+
+        return true;
     }
 
     /**
-     * Gets the full URL for the supplied $remote key
-     *
-     * @param string $remote The remote key
-     * @return string The full remote URL
+     * @inheritDoc
      */
     public function getRemoteUrl(string $remote): string
     {
-        $url = 'https://';
-        $url .= Configure::read('RemoteFiles.S3.clientConfig.bucket');
-        $url .= '.s3.amazonaws.com/';
-        $url .= Configure::read('RemoteFiles.S3.prefix');
-        $url .= "/{$remote}";
+        $host = Configure::read('RemoteFiles.S3.clientConfig.bucket') . '.'
+            . Configure::read('RemoteFiles.S3.deliveryBase', 's3.amazonaws.com');
+        $path = array_filter([Configure::read('RemoteFiles.S3.prefix'), $remote], fn($part) => (string)$part !== '');
 
-        return $url;
+        return "https://{$host}/" . implode('/', $path);
     }
 
     /**
-     * AWS S3 Client Factory
+     * Create the AWS S3 client.
      *
      * @return \Aws\S3\S3Client
      */
@@ -93,7 +67,7 @@ class S3Manager implements RemoteManagerInterface
     }
 
     /**
-     * Flysystem S3 Adapter Factory
+     * Create the Flysystem S3 adapter.
      *
      * @return \League\Flysystem\AwsS3V3\AwsS3V3Adapter
      */
@@ -102,7 +76,15 @@ class S3Manager implements RemoteManagerInterface
         return new AwsS3V3Adapter(
             $this->clientFactory(),
             Configure::read('RemoteFiles.S3.clientConfig.bucket'),
-            Configure::read('RemoteFiles.S3.prefix')
+            (string)Configure::read('RemoteFiles.S3.prefix'),
         );
+    }
+
+    /**
+     * @return \League\Flysystem\Filesystem
+     */
+    protected function filesystem(): Filesystem
+    {
+        return new Filesystem($this->adapterFactory());
     }
 }
