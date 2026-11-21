@@ -1,6 +1,8 @@
 name: CI
 
-on: push
+on:
+  push:
+  pull_request:
 
 permissions:
   contents: read
@@ -11,46 +13,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.2', '8.3']
+        php-version: ['8.5']
+        dependencies: ['highest', 'lowest']
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: ${{ matrix.php-version }}
-        extensions: mbstring, intl, pdo_sqlite
-        coverage: none
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, intl, pdo_sqlite
+          coverage: none
 
-    - name: Composer install
-      run: composer install --no-interaction
+      - name: Composer install
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
 
-    - name: Run PHPUnit
-      run: vendor/bin/phpunit tests/
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit
 
   cs-stan:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php-version: ['8.2', '8.3']
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: ${{ matrix.php-version }}
-        extensions: mbstring, intl
-        coverage: none
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl
+          coverage: none
 
-    - name: Composer install
-      run: composer install --no-interaction
+      - name: Composer install
+        uses: ramsey/composer-install@v3
 
-    - name: Run PHP CodeSniffer
-      run: vendor/bin/phpcs --standard=vendor/cakephp/cakephp-codesniffer/CakePHP src/ tests/
+      - name: Run PHP CodeSniffer
+        run: vendor/bin/phpcs
 
-    - name: Run phpstan
-      if: success() || failure()
-      run: vendor/bin/phpstan analyse
+      - name: Run PHPStan
+        if: success() || failure()
+        run: vendor/bin/phpstan analyse

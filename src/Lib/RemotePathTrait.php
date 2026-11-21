@@ -5,70 +5,50 @@ namespace RemoteFiles\Lib;
 
 use Cake\Core\Configure;
 
-/**
- * Class: RemotePathTrait
- *
- * @package RemoteFiles\Lib
- */
 trait RemotePathTrait
 {
     /**
-     * Gets the configured Manager instance
+     * Get the configured remote manager.
      *
      * @return \RemoteFiles\Lib\RemoteManagerInterface
      */
     public function getManager(): RemoteManagerInterface
     {
-        $remoteStorage = Configure::read('RemoteFiles.RemoteStorage');
-        $managerClass = Configure::read("RemoteFiles.{$remoteStorage}.managerClass");
-        $Manager = "RemoteFiles\\Lib\\{$managerClass}";
-
-        return new $Manager();
+        return ManagerFactory::create();
     }
 
     /**
-     * Gets a path to a remote file
+     * Get the URL of a remote file.
      *
-     * @param string $name The remote file to get
-     * @param string $extension The optional file extension
-     * @return string A path to a remote file or empty string
+     * @param string $name The remote file name
+     * @param string $extension Optional file extension
+     * @return string The URL, or an empty string when `$name` is empty
      */
     public function getRemoteFileUrl(string $name, string $extension = ''): string
     {
-        $url = '';
-
-        if ($name) {
-            $Manager = $this->getManager();
-            $url = $Manager->getRemoteUrl($name);
-        }
-        if ($name && $extension) {
-            $url .= '.' . $extension;
+        if ($name === '') {
+            return '';
         }
 
-        return $url;
+        $url = $this->getManager()->getRemoteUrl($name);
+
+        return $extension === '' ? $url : "{$url}.{$extension}";
     }
 
     /**
-     * Gets the URL from a remote file on Cloudflare Images
+     * Get the Cloudflare Images delivery URL of an image.
      *
-     * @param string $imageId The image name/id
-     * @param array $options Optional options (used for variants)
-     * @return string The remote image URL or empty string
+     * @param string $imageId The image ID
+     * @param array<string, mixed> $options `variant` selects the image variant, defaults to `default`
+     * @return string The URL, or an empty string when `$imageId` is empty or delivery is not configured
      */
     public function getRemoteImageUrl(string $imageId, array $options = []): string
     {
-        $url = '';
-
-        if ($imageId) {
-            $RemoteConfig = Configure::read('RemoteFiles.Cloudflare.Images');
-            if ($RemoteConfig) {
-                $url = $RemoteConfig['delivery']['url'] . '/';
-                $url .= $RemoteConfig['delivery']['hash'] . '/';
-                $url .= $imageId . '/';
-                $url .= $options['variant'] ?? 'default';
-            }
+        $delivery = Configure::read('RemoteFiles.Cloudflare.Images.delivery');
+        if ($imageId === '' || !is_array($delivery)) {
+            return '';
         }
 
-        return $url;
+        return implode('/', [$delivery['url'], $delivery['hash'], $imageId, $options['variant'] ?? 'default']);
     }
 }

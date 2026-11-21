@@ -7,58 +7,50 @@ use Cake\View\Helper;
 use RemoteFiles\Lib\RemotePathTrait;
 
 /**
- * Class: RemoteFileHelper
- *
- * @see Helper
+ * @property \Cake\View\Helper\HtmlHelper $Html
+ * @extends \Cake\View\Helper<\Cake\View\View>
  */
 class RemoteFileHelper extends Helper
 {
     use RemotePathTrait;
 
-    /**
-     * Additional helper to load
-     *
-     * @var array
-     */
-    public array $helpers = ['Html'];
+    protected array $helpers = ['Html'];
 
     /**
-     * Creates an HTML image sourced from a remote file on Cloudflare Images
+     * Create an image tag for a Cloudflare Images image.
      *
-     * @param string $imageId The image name/id
-     * @param array $options The options
-     * @return string An HTML image string or an empty string
+     * @param string|null $imageId The image ID
+     * @param array<string, mixed> $options HtmlHelper::image() options plus `variant`; `class` defaults to `img-fluid`
+     * @return string The image tag, or an empty string when `$imageId` is empty
      */
-    public function image(string $imageId, array $options = []): string
+    public function image(?string $imageId, array $options = []): string
     {
-        $image = '';
-        $defaultClass = 'img-fluid';
-
-        if ($imageId) {
-            $options['class'] = empty($options['class']) ? $defaultClass : $options['class'];
-            $path = $this->getRemoteImageUrl($imageId, $options);
-            unset($options['variant']);
-            $image = $this->Html->image($path, $options);
+        if ($imageId === null || $imageId === '') {
+            return '';
         }
 
-        return $image;
+        if (empty($options['class'])) {
+            $options['class'] = 'img-fluid';
+        }
+        $path = $this->getRemoteImageUrl($imageId, $options);
+        unset($options['variant']);
+
+        return $this->Html->image($path, $options);
     }
 
     /**
-     * Gets a path to a remote file
+     * Get the URL of a remote file.
      *
-     * @param string $name The remote file to get
-     * @param string $extension The optional file extension
-     * @return string A path to a remote file or empty string
+     * @param string|null $name The remote file name
+     * @param string|null $extension The file extension
+     * @return string The URL, or an empty string when either argument is empty
      */
-    public function file(string $name, string $extension): string
+    public function file(?string $name, ?string $extension): string
     {
-        $path = '';
-
-        if ($name && $extension) {
-            $path = $this->getRemoteFileUrl($name, $extension);
+        if ($name === null || $name === '' || $extension === null || $extension === '') {
+            return '';
         }
 
-        return $path;
+        return $this->getRemoteFileUrl($name, $extension);
     }
 }

@@ -4,192 +4,152 @@ declare(strict_types=1);
 namespace RemoteFiles\Test\TestCase\Lib;
 
 use Cake\Core\Configure;
-use Cake\TestSuite\TestCase;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use ReflectionProperty;
+use InvalidArgumentException;
+use Psr\Http\Message\RequestInterface;
 use RemoteFiles\Lib\CloudflareImage;
+use RemoteFiles\Test\TestCase\RemoteFilesTestCase;
 
-/**
- * Class: CloudflareImageTest
- */
-class CloudflareImageTest extends TestCase
+class CloudflareImageTest extends RemoteFilesTestCase
 {
     /**
-     * Test configuration
-     *
-     * @var array
+     * @var list<array{request: \Psr\Http\Message\RequestInterface}>
      */
-    public $testConfig = [
-        'RemoteFiles' => [
-            'RemoteStorage' => 'S3',
-            'S3' => [
-                'managerClass' => 'S3Manager',
-                'deliveryBase' => 's3.amazonaws.com',
-                'prefix' => 'files/test',
-                'clientConfig' => [
-                    'version' => 'latest',
-                    'region' => 'us-east-2',
-                    'bucket' => 'test-bucket',
-                    'credentials' => [
-                        'key' => 's3key123',
-                        'secret' => 's3secret123',
-                    ],
-                ],
-
-            ],
-            'Cloudflare' => [
-                'Images' => [
-                    'apiUrl' => 'https://api.cloudflare.com/client/v4/accounts/%s/images/v1',
-                    'delivery' => [
-                        'url' => 'https://imagedelivery.net',
-                        'hash' => 'hash123',
-                    ],
-                    'Auth' => [
-                        'account' => 'cfaccount123',
-                        'token' => 'cftoken123',
-                    ],
-                ],
-            ],
-        ],
-    ];
+    protected array $history = [];
 
     /**
-     * setUp method
-     *
-     * @return void
+     * @param list<\Psr\Http\Message\ResponseInterface|\Throwable> $queue
+     * @param array{token?: string, account?: string, apiUrl?: string} $config
      */
-    public function setUp(): void
+    protected function cloudflare(array $queue, array $config = []): CloudflareImage
     {
-        parent::setUp();
-        Configure::write($this->testConfig);
+        $this->history = [];
+        $stack = HandlerStack::create(new MockHandler($queue));
+        $stack->push(Middleware::history($this->history));
+
+        return new CloudflareImage($config, new Client(['handler' => $stack]));
     }
 
-    /**
-     * tearDown method
-     *
-     * @return void
-     */
-    public function tearDown(): void
+    protected function lastRequest(): RequestInterface
     {
-        Configure::write('RemoteFiles', []);
-        parent::tearDown();
+        $this->assertCount(1, $this->history);
+
+        return $this->history[0]['request'];
     }
 
-    /**
-     * testConstructorSet
-     *
-     * @return void
-     */
-    public function testConstructorSet()
+    public function testDefaultClient(): void
     {
-        $CloudflareImage = new CloudflareImage();
-        $this->assertInstanceOf('\GuzzleHttp\Client', $CloudflareImage->client);
-
-        $protectedProperties = ['token', 'account', 'apiUrl'];
-        foreach ($protectedProperties as $property) {
-            $this->assertTrue(property_exists(CloudflareImage::class, $property));
-            $Reflection = new ReflectionProperty(CloudflareImage::class, $property);
-            $Reflection->setAccessible(true);
-            $propertyVal = $Reflection->getValue($CloudflareImage);
-            $this->assertNotEmpty($propertyVal);
-        }
+        $this->assertInstanceOf(Client::class, (new CloudflareImage())->client);
     }
 
-    /**
-     * testConstructorNotSet
-     *
-     * @return void
-     */
-    public function testConstructorNotSet()
+    public function testMissingConfigThrows(): void
     {
-        Configure::write('RemoteFiles.Cloudflare.Images.Auth.token', null);
-        $this->expectException(
-            'TypeError',
-        );
+        Configure::delete('RemoteFiles.Cloudflare.Images.Auth.token');
+
+        $this->expectException(InvalidArgumentException::class);
         new CloudflareImage();
     }
 
-    /**
-     * testClientFactory
-     *
-     * @return void
-     */
-    public function testClientFactory()
+    public function testConfigOverridesAndEmptyValuesFallBack(): void
     {
-        $CloudflareImage = new CloudflareImage();
-        $client = $CloudflareImage->clientFactory();
-        $this->assertInstanceOf('\GuzzleHttp\Client', $client);
+        $cloudflare = $this->cloudflare(
+            [new Response(200, [], '{"success":true}')],
+            ['token' => 'override-token', 'account' => '', 'apiUrl' => 'https://cf.test/%s/images'],
+        );
+
+        $this->assertTrue($cloudflare->delete('img'));
+        $request = $this->lastRequest();
+        $this->assertSame('https://cf.test/cfaccount123/images/img', (string)$request->getUri());
+        $this->assertSame('Bearer override-token', $request->getHeaderLine('Authorization'));
     }
 
-    /**
-     * testUploadUrlException
-     *
-     * @return void
-     */
-    public function testUploadUrlException()
+    public function testUploadUrlSuccess(): void
     {
-        $url = 'http://example.com/image.jpg';
-        $id = '17';
-        $exceptionMsg = 'guzzle exception';
-        $CloudflareImage = $this->getMockBuilder(CloudflareImage::class)
-            ->onlyMethods([])
-            ->getMock();
-        $CloudflareImage->client = $this->getMockBuilder('\GuzzleHttp\Client')
-            ->onlyMethods(['request'])
-            ->getMock();
-        $CloudflareImage->client->expects($this->once())
-            ->method('request')
-            ->willThrowException(new RequestException($exceptionMsg, new Request('POST', 'test')));
+        $cloudflare = $this->cloudflare([new Response(200, [], '{"success":true,"result":{"id":"17"}}')]);
 
-        $result = $CloudflareImage->uploadUrl($url, $id);
-        $this->assertFalse($result);
+        $this->assertTrue($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
+        $request = $this->lastRequest();
+        $this->assertSame('POST', $request->getMethod());
+        $this->assertSame(
+            'https://api.cloudflare.com/client/v4/accounts/cfaccount123/images/v1',
+            (string)$request->getUri(),
+        );
+        $this->assertSame('Bearer cftoken123', $request->getHeaderLine('Authorization'));
+        $body = (string)$request->getBody();
+        $this->assertStringContainsString('https://example.com/image.jpg', $body);
+        $this->assertStringContainsString('name="id"', $body);
     }
 
-    /**
-     * testUploadUrlSuccess
-     *
-     * @return void
-     */
-    public function testUploadUrlSuccess()
+    public function testUploadUrlUnsuccessfulBody(): void
     {
-        $url = 'http://example.com/image.jpg';
-        $id = '17';
-        $CloudflareImage = $this->getMockBuilder(CloudflareImage::class)
-            ->onlyMethods([])
-            ->getMock();
-        $CloudflareImage->client = $this->getMockBuilder('\GuzzleHttp\Client')
-            ->onlyMethods(['request'])
-            ->getMock();
-        $CloudflareImage->client->expects($this->once())
-            ->method('request')
-            ->willReturn(new Response(200, [], '{"success":true,"result":{"id":"123","url":"' . $url . '"}}'));
+        $cloudflare = $this->cloudflare([new Response(200, [], '{"success":false}')]);
 
-        $result = $CloudflareImage->uploadUrl($url, $id);
-        $this->assertTrue($result);
+        $this->assertFalse($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
     }
 
-    /**
-     * testUploadUrlFailure
-     *
-     * @return void
-     */
-    public function testUploadUrlFailure()
+    public function testUploadUrlInvalidJson(): void
     {
-        $url = 'http://example.com/image.jpg';
-        $id = '17';
-        $CloudflareImage = $this->getMockBuilder(CloudflareImage::class)
-            ->onlyMethods([])
-            ->getMock();
-        $CloudflareImage->client = $this->getMockBuilder('\GuzzleHttp\Client')
-            ->onlyMethods(['request'])
-            ->getMock();
-        $CloudflareImage->client->expects($this->once())
-            ->method('request')
-            ->willReturn(new Response(200, [], '{"success":false}'));
+        $cloudflare = $this->cloudflare([new Response(200, [], 'not json')]);
 
-        $result = $CloudflareImage->uploadUrl($url, $id);
-        $this->assertFalse($result);
+        $this->assertFalse($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
+    }
+
+    public function testUploadUrlExistingImageIsSuccess(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(409, [], '{"success":false}')]);
+
+        $this->assertTrue($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
+    }
+
+    public function testUploadUrlServerError(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(500)]);
+
+        $this->assertFalse($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
+    }
+
+    public function testUploadUrlConnectionError(): void
+    {
+        $cloudflare = $this->cloudflare([new ConnectException('down', new Request('POST', 'test'))]);
+
+        $this->assertFalse($cloudflare->uploadUrl('https://example.com/image.jpg', '17'));
+    }
+
+    public function testDelete(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(200, [], '{"success":true}')]);
+
+        $this->assertTrue($cloudflare->delete('17'));
+        $request = $this->lastRequest();
+        $this->assertSame('DELETE', $request->getMethod());
+        $this->assertStringEndsWith('/images/v1/17', (string)$request->getUri());
+    }
+
+    public function testDeleteNotFound(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(404)]);
+
+        $this->assertFalse($cloudflare->delete('17'));
+    }
+
+    public function testGet(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(200, [], '{"success":true,"result":{"id":"17"}}')]);
+
+        $this->assertSame('{"success":true,"result":{"id":"17"}}', $cloudflare->get('17'));
+        $this->assertSame('GET', $this->lastRequest()->getMethod());
+    }
+
+    public function testGetFailure(): void
+    {
+        $cloudflare = $this->cloudflare([new Response(404)]);
+
+        $this->assertNull($cloudflare->get('17'));
     }
 }

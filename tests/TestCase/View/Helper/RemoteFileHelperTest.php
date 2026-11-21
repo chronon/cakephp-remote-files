@@ -3,133 +3,70 @@ declare(strict_types=1);
 
 namespace RemoteFiles\Test\TestCase\View\Helper;
 
-use Cake\Core\Configure;
-use Cake\TestSuite\TestCase;
 use Cake\View\View;
+use RemoteFiles\Test\TestCase\RemoteFilesTestCase;
 use RemoteFiles\View\Helper\RemoteFileHelper;
 
-/**
- * RemoteFiles\View\Helper\RemoteFileHelper Test Case
- */
-class RemoteFileHelperTest extends TestCase
+class RemoteFileHelperTest extends RemoteFilesTestCase
 {
-    /**
-     * Test subject
-     *
-     * @var \RemoteFiles\View\Helper\RemoteFileHelper
-     */
-    public $RemoteFileHelper;
+    protected RemoteFileHelper $helper;
 
-    /**
-     * Test configuration
-     *
-     * @var array
-     */
-    public $testConfig = [
-        'RemoteFiles' => [
-            'RemoteStorage' => 'S3',
-            'S3' => [
-                'managerClass' => 'S3Manager',
-                'deliveryBase' => 's3.amazonaws.com',
-                'prefix' => 'files/test',
-                'clientConfig' => [
-                    'version' => 'latest',
-                    'region' => 'us-east-2',
-                    'bucket' => 'test-bucket',
-                    'credentials' => [
-                        'key' => 's3key123',
-                        'secret' => 's3secret123',
-                    ],
-                ],
-
-            ],
-            'Cloudflare' => [
-                'Images' => [
-                    'apiUrl' => 'https://api.cloudflare.com/client/v4/accounts/%s/images/v1',
-                    'delivery' => [
-                        'url' => 'https://imagedelivery.net',
-                        'hash' => 'hash123',
-                    ],
-                    'Auth' => [
-                        'account' => 'cfaccount123',
-                        'token' => 'cftoken123',
-                    ],
-                ],
-            ],
-        ],
-    ];
-
-    /**
-     * setUp method
-     *
-     * @return void
-     */
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
-        $view = new View();
-        $this->RemoteFileHelper = new RemoteFileHelper($view);
-        Configure::write($this->testConfig);
+        $this->helper = new RemoteFileHelper(new View());
     }
 
-    /**
-     * tearDown method
-     *
-     * @return void
-     */
-    public function tearDown(): void
-    {
-        unset($this->RemoteFileHelper);
-        Configure::write('RemoteFiles', []);
-
-        parent::tearDown();
-    }
-
-    /**
-     * Test image method when path is empty
-     *
-     * @return void
-     */
     public function testImageEmpty(): void
     {
-        $path = '';
-
-        $result = $this->RemoteFileHelper->image($path);
-
-        $this->assertSame($path, $result);
+        $this->assertSame('', $this->helper->image(''));
+        $this->assertSame('', $this->helper->image(null));
     }
 
-    /**
-     * Test image method when path is valid
-     *
-     * @return void
-     */
-    public function testImageNotNullDefaultClass(): void
+    public function testImageDefaults(): void
     {
-        $path = 'baz';
-        $options = ['alt' => 'Foo Bar'];
-        $expected = 'alt="Foo Bar" class="img-fluid"';
-
-        $result = $this->RemoteFileHelper->image($path, $options);
-        $this->assertStringContainsString('imagedelivery.net', $result);
-        $this->assertStringContainsString($path, $result);
-        $this->assertStringContainsString($expected, $result);
+        $this->assertSame(
+            '<img src="https://imagedelivery.net/hash123/baz/default" alt="Foo Bar" class="img-fluid">',
+            $this->helper->image('baz', ['alt' => 'Foo Bar']),
+        );
     }
 
-    /**
-     * Test image method when path is valid and a class is supplied
-     *
-     * @return void
-     */
-    public function testImageNotNullWithClass(): void
+    public function testImageWithClassAndVariant(): void
     {
-        $path = 'foo';
-        $options = ['alt' => 'Foo Bar', 'class' => 'lovely'];
-        $expected = 'alt="Foo Bar" class="lovely"';
+        $this->assertSame(
+            '<img src="https://imagedelivery.net/hash123/foo/thumb" alt="Foo Bar" class="lovely">',
+            $this->helper->image('foo', ['alt' => 'Foo Bar', 'class' => 'lovely', 'variant' => 'thumb']),
+        );
+    }
 
-        $result = $this->RemoteFileHelper->image($path, $options);
-        $this->assertStringContainsString('imagedelivery.net', $result);
-        $this->assertStringContainsString($path, $result);
-        $this->assertStringContainsString($expected, $result);
+    public function testGetRemoteImageUrlEmptyVariant(): void
+    {
+        $this->assertSame(
+            'https://imagedelivery.net/hash123/foo/',
+            $this->helper->getRemoteImageUrl('foo', ['variant' => '']),
+        );
+    }
+
+    public function testFile(): void
+    {
+        $this->assertSame(
+            'https://test-bucket.s3.amazonaws.com/files/test/downloads-abc.pdf',
+            $this->helper->file('downloads-abc', 'pdf'),
+        );
+    }
+
+    public function testFileEmpty(): void
+    {
+        $this->assertSame('', $this->helper->file('', 'pdf'));
+        $this->assertSame('', $this->helper->file('downloads-abc', ''));
+        $this->assertSame('', $this->helper->file(null, null));
+    }
+
+    public function testGetRemoteFileUrlWithoutExtension(): void
+    {
+        $this->assertSame(
+            'https://test-bucket.s3.amazonaws.com/files/test/downloads-abc',
+            $this->helper->getRemoteFileUrl('downloads-abc'),
+        );
     }
 }
